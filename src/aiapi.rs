@@ -119,19 +119,51 @@ pub fn count(state: &Path, p: &Pack, keys: &[String], prompt: &str, model: &str)
     Ok(json!({ "tokens": v["input_tokens"], "model": model }))
 }
 
+fn meta(v: &Value, max_tokens: u32, when: &str) -> Value {
+    json!({ "at": when, "model": v["model"], "stop_reason": v["stop_reason"], "usage": v["usage"], "max_tokens": max_tokens })
+}
+
+fn answer_text(v: &Value) -> String {
+    v["content"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter(|b| b["type"] == "text" || b["type"].is_null())
+                .filter_map(|b| b["text"].as_str())
+                .collect::<Vec<_>>()
+                .join("\n\n")
+        })
+        .unwrap_or_default()
+}
+
 pub fn send(state: &Path, p: &Pack, keys: &[String], prompt: &str, model: &str, max_tokens: u32) -> Result<Value, String> {
     let body = json!({ "model": model, "max_tokens": max_tokens, "messages": [{ "role": "user", "content": content(p, keys, prompt) }] });
     let (code, v) = call(state, &p.dir, "messages", &body, 1800)?;
     if code != 200 {
         return Err(err_of(code, &v));
     }
-    let text: String = v["content"]
-        .as_array()
-        .map(|a| a.iter().filter_map(|b| b["text"].as_str()).collect::<Vec<_>>().join("\n\n"))
-        .unwrap_or_default();
+    let text = answer_text(&v);
     let when = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
+    let m = meta(&v, max_tokens, &when);
+    let stop = v["stop_reason"].as_str().unwrap_or("").to_string();
+    let tin = v["usage"]["input_tokens"].as_u64().unwrap_or(0);
+    let tout = v["usage"]["output_tokens"].as_u64().unwrap_or(0);
+    if text.trim().is_empty() {
+        let _ = std::fs::write(
+            p.dir.join(format!("Claude_{when}_empty.json")),
+            serde_json::to_vec_pretty(&m).unwrap_or_default(),
+        );
+        crate::focus::app_event(&format!(
+            "AI handover: the Claude API answered without text (stop reason {stop}, {tin} input / {tout} output tokens, model {model})"
+        ));
+        return Ok(json!({ "empty": true, "stop": stop, "usage": v["usage"], "model": v["model"] }));
+    }
     let f = p.dir.join(format!("Claude_{when}.md"));
     std::fs::write(&f, &text).map_err(|e| e.to_string())?;
+    let _ = std::fs::write(
+        p.dir.join(format!("Claude_{when}.json")),
+        serde_json::to_vec_pretty(&m).unwrap_or_default(),
+    );
     let back = crate::aipack::back(p, &text);
     let fb = if p.anon {
         let x = p.dir.join(format!("Claude_{when}_names.md"));
@@ -140,12 +172,9 @@ pub fn send(state: &Path, p: &Pack, keys: &[String], prompt: &str, model: &str, 
     } else {
         None
     };
-    crate::focus::app_event(&format!(
-        "AI handover: answer of the Claude API saved ({} characters, model {model})",
-        text.chars().count()
-    ));
+    crate::focus::app_event(&format!("AI handover: answer of the Claude API saved ({} characters, stop reason {stop}, {tin} input / {tout} output tokens, model {model})", text.chars().count()));
     Ok(json!({
         "text": text, "back": back, "path": crate::paths::plain_path(&f), "path_back": fb.map(|x| crate::paths::plain_path(&x)),
-        "usage": v["usage"], "stop": v["stop_reason"], "model": v["model"],
+        "usage": v["usage"], "stop": stop, "model": v["model"],
     }))
 }

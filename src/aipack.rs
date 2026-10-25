@@ -668,7 +668,12 @@ pub fn history(conf: &Conf, cases: &[String]) -> Value {
             packs.push(json!({ "id": name, "anon": anon, "dir": crate::paths::plain_path(&p) }));
             for a in std::fs::read_dir(&p).into_iter().flatten().flatten() {
                 let n = a.file_name().to_string_lossy().to_string();
-                if n.starts_with("Claude_") && n.ends_with(".md") && !n.ends_with("_names.md") {
+
+                if n.starts_with("Claude_")
+                    && n.ends_with(".md")
+                    && !n.ends_with("_names.md")
+                    && a.metadata().map(|x| x.len() > 0).unwrap_or(false)
+                {
                     let names = p.join(n.replace(".md", "_names.md"));
                     answers.push(json!({ "at": n.trim_start_matches("Claude_").trim_end_matches(".md"), "path": crate::paths::plain_path(&a.path()), "names": if names.is_file() { json!(crate::paths::plain_path(&names)) } else { Value::Null }, "pack": name }));
                 }
