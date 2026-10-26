@@ -549,7 +549,8 @@ impl Fetcher {
         let t_open_end = Instant::now();
         if self.cfg.update_parties && !data.light {
             let k = parties_key(&info.number, &info.kind, &info.date, &info.office);
-            self.parties.update(&k, data.partes.get("valorDevuelto").unwrap_or(&Value::Null));
+            self.parties
+                .update(&k, data.partes.get("valorDevuelto").unwrap_or(&Value::Null), self.cfg.ct_detect);
         }
         let docs_all: Vec<Value> = data
             .docs
