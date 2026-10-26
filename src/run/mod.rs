@@ -1020,10 +1020,7 @@ pub fn run_update(args: StartArgs) -> RunOutcome {
     log.info(format!("Data folder (protocol, case overview): {}", conf.data_dir.display()));
 
     log.info(format!("Settings, licence and logs: {}", conf.app_dir.display()));
-    log.info(format!(
-        "Browser profile of this Windows user: {}",
-        conf.portal_profile_dir.display()
-    ));
+    log.info(format!("Browser profile of this user: {}", conf.portal_profile_dir.display()));
     if conf.list_only {
         log.info("Run type: case list only (list_only = 1).");
     }

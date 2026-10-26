@@ -42,7 +42,7 @@ profesional, protección de datos, consentimiento de sus clientes).
 
 ## Licence / Licencia
 
-Read and review only – see `LICENSE` (FetchJ Source Review License 1.0, Mute Consult LLC).
+Read and review only – see `LICENSE` (FetchJ Source Review License 1.0, MUTECONSULT LLC).
 Solo lectura y revisión – ver `LICENSE`.
 
 Independent product – not a product of the courts. / Producto independiente – no es un producto del Poder Judicial.

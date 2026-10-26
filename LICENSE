@@ -1,5 +1,5 @@
 FetchJ Source Review License 1.0
-Copyright (c) 2026 Mute Consult LLC. All rights reserved.
+Copyright (c) 2026 MUTECONSULT LLC. All rights reserved.
 
 1. Purpose. This repository contains parts of the source code of FetchJ so that anyone can check what the program
    does with portal sessions, passwords, case files and personal data.
@@ -7,7 +7,7 @@ Copyright (c) 2026 Mute Consult LLC. All rights reserved.
 2. Permitted. You may read this source code, download it and keep local copies only to review it, and publish the
    results of your review (findings, quotations of short excerpts with a reference to this repository).
 
-3. Not permitted. Without prior written permission of Mute Consult LLC you may not
+3. Not permitted. Without prior written permission of MUTECONSULT LLC you may not
    a) use, run or deploy this code or any program built from it, in whole or in part;
    b) copy, distribute, publish, sublicense, sell or rent it, except as allowed in section 2;
    c) modify it, build derived or competing works from it, or include it in other software;
@@ -16,10 +16,10 @@ Copyright (c) 2026 Mute Consult LLC. All rights reserved.
 4. Incomplete on purpose. Comments, tests, the user interface and all validation and licence checks are removed.
    This code does not compile as it is and is not a working program.
 
-5. No warranty, no liability. The code is provided "as is", without any warranty. Mute Consult LLC is not liable for
+5. No warranty, no liability. The code is provided "as is", without any warranty. MUTECONSULT LLC is not liable for
    any damage arising from its use or from the review.
 
 6. Termination. Any breach ends the permissions of section 2 at once.
 
 Spanish summary / Resumen: Puede leer y revisar este código y publicar los resultados de su revisión. No puede usarlo,
-copiarlo, distribuirlo, modificarlo ni construir otro programa con él sin permiso escrito de Mute Consult LLC.
+copiarlo, distribuirlo, modificarlo ni construir otro programa con él sin permiso escrito de MUTECONSULT LLC.
