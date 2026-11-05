@@ -288,11 +288,16 @@ pub fn build(
     anon_on: bool,
     o: &Opts,
     version: &str,
+    only: Option<&[String]>,
 ) -> Result<Value, String> {
     let l = if AIK.contains_key(lang) { lang } else { "es" };
     let tv = texts(l);
     let t = Tx(tv);
     let mut docs = crate::overview::case_docs(conf, case, version);
+
+    if let Some(only) = only {
+        docs.retain(|d| !d.rec.is_empty() || only.contains(&d.doc_id));
+    }
     docs.sort_by(|a, b| a.date.cmp(&b.date).then(a.doc_id.cmp(&b.doc_id)));
     let stamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
     let dir = root(conf, case).join(&stamp);
@@ -460,7 +465,11 @@ pub fn build(
         let cp = crate::casepdf::out_path(conf, case);
         let name = t.f("f_case", &[("c", cs.clone()), ("a", String::new())]);
         let pdf = dir.join(&name);
-        let have = cp.is_file() && (std::fs::hard_link(&cp, &pdf).is_ok() || std::fs::copy(&cp, &pdf).is_ok());
+
+        let have = match only {
+            Some(only) => crate::casepdf::build_subset(conf, case, version, only, &pdf).is_ok(),
+            None => cp.is_file() && (std::fs::hard_link(&cp, &pdf).is_ok() || std::fs::copy(&cp, &pdf).is_ok()),
+        };
         let pages = if have { pdf_pages(&pdf) } else { 0 };
         info.case_label = case.to_string();
         info.case_pdf = name.clone();
@@ -587,7 +596,8 @@ pub fn build(
                 ext
             }
         );
-        let checked = kind != "video" && (!anon_on || o.media_anon);
+
+        let checked = kind != "video" && o.media_anon;
         let len = r.minutes().map(|m| format!("{m} min")).unwrap_or_default();
         atts.push(Att {
             key: r.key(),
@@ -666,7 +676,14 @@ pub fn history(conf: &Conf, cases: &[String]) -> Value {
                 .as_bool()
                 .unwrap_or_else(|| r.join(format!("{name}_map.json")).is_file());
             packs.push(json!({ "id": name, "anon": anon, "dir": crate::paths::plain_path(&p) }));
-            for a in std::fs::read_dir(&p).into_iter().flatten().flatten() {
+
+            let ki = p.join(format!("{}_KI", fname(case)));
+            for a in std::fs::read_dir(&p)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .chain(std::fs::read_dir(&ki).into_iter().flatten().flatten())
+            {
                 let n = a.file_name().to_string_lossy().to_string();
 
                 if n.starts_with("Claude_")
@@ -699,13 +716,24 @@ pub fn prompt(conf: &Conf, p: &Pack, party: &str, checked: &[String], version: &
         .map(|a| (a.key.clone(), a.name.clone()))
         .collect();
     info.party_labels = p.role_labels.get(&party.to_uppercase()).cloned().unwrap_or_default();
-    crate::aiprompt::set_party(conf, &p.case, party);
+
     crate::aiprompt::build_pack(conf, &p.case, &p.lang, party, version, &info)
 }
 
 pub fn send_folder(p: &Pack, keys: &[String], prompt: &str) -> Result<(PathBuf, Vec<PathBuf>), String> {
     let out = p.dir.join(format!("{}_KI", fname(&p.case)));
-    let _ = std::fs::remove_dir_all(&out);
+
+    for e in std::fs::read_dir(&out).into_iter().flatten().flatten() {
+        let n = e.file_name().to_string_lossy().to_string();
+        if n.starts_with("Claude_") && n.ends_with(".md") {
+            continue;
+        }
+        let _ = if e.path().is_dir() {
+            std::fs::remove_dir_all(e.path())
+        } else {
+            std::fs::remove_file(e.path())
+        };
+    }
     std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
     let t = texts(&p.lang);
     let pf = out.join(t["f_prompt"].as_str().unwrap_or("00_Prompt.txt"));

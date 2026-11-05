@@ -264,6 +264,41 @@ pub fn raise<R: Runtime>(w: &WebviewWindow<R>, attention: bool, why: &str) {
     }
 }
 
+#[cfg(desktop)]
+pub fn show_quiet<R: Runtime>(w: &WebviewWindow<R>, restore_max: bool) {
+    focus_trace(&format!(
+        "window '{}' opened quietly in the task bar (another program is in front)",
+        w.label()
+    ));
+    note_action(&format!("window '{}' opened quietly in the task bar", w.label()));
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            GetWindowPlacement, SetWindowPlacement, SW_SHOWMINNOACTIVE, WINDOWPLACEMENT, WPF_RESTORETOMAXIMIZED,
+        };
+        if let Ok(h) = w.hwnd() {
+            let hwnd = h.0 as _;
+
+            unsafe {
+                let mut wp: WINDOWPLACEMENT = std::mem::zeroed();
+                wp.length = std::mem::size_of::<WINDOWPLACEMENT>() as u32;
+                if GetWindowPlacement(hwnd, &mut wp) != 0 {
+                    if restore_max {
+                        wp.flags |= WPF_RESTORETOMAXIMIZED;
+                    }
+                    wp.showCmd = SW_SHOWMINNOACTIVE as u32;
+                    if SetWindowPlacement(hwnd, &wp) != 0 {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = restore_max;
+    let _ = w.minimize();
+}
+
 impl<R: Runtime> Clone for Portal<R> {
     fn clone(&self) -> Self {
         Portal {

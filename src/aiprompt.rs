@@ -79,11 +79,18 @@ pub fn set_party(conf: &Conf, case: &str, role: &str) {
 
 pub fn roles(conf: &Conf, case: &str, lang: &str) -> Value {
     let mut raw: Vec<String> = Vec::new();
+    let mut persons: Vec<(String, String)> = Vec::new();
     for e in crate::research::case_entries(conf, case) {
-        for r in e.roles {
+        for (i, r) in e.roles.iter().enumerate() {
             let r = r.trim().to_string();
-            if !r.is_empty() && !raw.iter().any(|x| x.eq_ignore_ascii_case(&r)) {
-                raw.push(r);
+            if r.is_empty() {
+                continue;
+            }
+            if !raw.iter().any(|x| x.eq_ignore_ascii_case(&r)) {
+                raw.push(r.clone());
+            }
+            if let Some(n) = e.names.get(i) {
+                persons.push((r, n.clone()));
             }
         }
     }
@@ -93,12 +100,94 @@ pub fn roles(conf: &Conf, case: &str, lang: &str) -> Value {
             .map(|s| s.to_string())
             .collect();
     }
-    let chosen = parties(conf).get(case).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let last = parties(conf).get(case).and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    let clients = crate::clients::of_case(conf, case);
+    let (chosen, source, from) = if !last.is_empty() {
+        (last, "last", String::new())
+    } else if let Some((n, r)) = clients.iter().find(|(_, r)| !r.is_empty()) {
+        (r[0].clone(), "client", n.clone())
+    } else {
+        let mut names: Vec<String> = clients.iter().map(|(n, _)| n.clone()).collect();
+        names.extend(crate::templates::own_names(conf));
+        match name_role(&names, &persons) {
+            Some(r) => (r, "name", String::new()),
+            None => (String::new(), "", String::new()),
+        }
+    };
+
+    let chosen = if chosen.is_empty() {
+        chosen
+    } else if let Some(x) = raw.iter().find(|x| role_key(x) == role_key(&chosen)) {
+        x.clone()
+    } else {
+        raw.push(chosen.clone());
+        chosen
+    };
     let list: Vec<Value> = raw
         .iter()
         .map(|r| json!({ "raw": r, "label": crate::caseinfo::role_label(r, lang) }))
         .collect();
-    json!({ "roles": list, "chosen": chosen })
+    json!({ "roles": list, "chosen": chosen, "source": source, "from": from })
+}
+
+fn role_key(r: &str) -> String {
+    let u = crate::anon::fold(r.trim()).to_uppercase();
+    let u = u.trim_end_matches("/A").trim_end_matches("(A)").trim();
+    u.to_string()
+}
+
+fn name_words(s: &str) -> Vec<String> {
+    const SKIP: [&str; 9] = ["de", "del", "la", "las", "los", "y", "e", "da", "do"];
+    s.split(|c: char| !c.is_alphanumeric())
+        .map(crate::anon::fold)
+        .filter(|w| w.chars().count() >= 2 && !SKIP.contains(&w.as_str()))
+        .collect()
+}
+
+fn representative(role: &str) -> bool {
+    let k = role_key(role);
+    [
+        "ABOGAD",
+        "DEFENSOR",
+        "APODERAD",
+        "REPRESENTANTE",
+        "PROCURAD",
+        "FISCAL",
+        "JUEZ",
+        "NOTARI",
+    ]
+    .iter()
+    .any(|w| k.contains(w))
+}
+
+fn name_role(names: &[String], persons: &[(String, String)]) -> Option<String> {
+    let mut best: Vec<(usize, String)> = Vec::new();
+    for n in names {
+        let nw = name_words(n);
+        if nw.is_empty() {
+            continue;
+        }
+        for (role, pn) in persons {
+            if representative(role) {
+                continue;
+            }
+            let pw = name_words(pn);
+            let common = pw.iter().filter(|w| nw.contains(w)).count();
+            let need = 2.min(pw.len()).min(nw.len());
+            if need > 0 && common >= need {
+                best.push((common, role.clone()));
+            }
+        }
+    }
+    let top = best.iter().map(|x| x.0).max()?;
+    let mut roles: Vec<String> = best.into_iter().filter(|x| x.0 == top).map(|x| x.1).collect();
+    roles.dedup_by(|a, b| role_key(a) == role_key(b));
+    let first = role_key(&roles[0]);
+    if roles.iter().all(|r| role_key(r) == first) {
+        Some(roles.swap_remove(0))
+    } else {
+        None
+    }
 }
 
 pub fn build(conf: &Conf, case: &str, lang: &str, party: &str, version: &str) -> Value {

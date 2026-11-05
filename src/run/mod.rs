@@ -1469,6 +1469,17 @@ pub fn run_update(args: StartArgs) -> RunOutcome {
         keep_awake(false);
     }
     f.info(format!("FetchJ finished: {}", crate::i18n::tr(&status)));
+
+    stats_line(
+        &f.cfg.log_dir,
+        &start,
+        &end,
+        f.entries.len(),
+        f.docs_downloaded,
+        f.failed.len(),
+        &status,
+        &why,
+    );
     let ab = status == "ABORTED";
     let res_word = match status.as_str() {
         "COMPLETED" => "complete",
@@ -1493,6 +1504,45 @@ pub fn run_update(args: StartArgs) -> RunOutcome {
         status,
         why,
         msg: down_msg,
+    }
+}
+
+pub const STATS_CSV: &str = "FetchJ_stats.csv";
+#[allow(clippy::too_many_arguments)]
+pub fn stats_line(
+    dir: &std::path::Path,
+    start: &DateTime<Local>,
+    end: &DateTime<Local>,
+    entries: usize,
+    loaded: usize,
+    failed: usize,
+    status: &str,
+    why: &str,
+) {
+    use std::io::Write;
+    let p = dir.join(STATS_CSV);
+    let head = !p.exists();
+    if let Ok(mut fh) = std::fs::OpenOptions::new().create(true).append(true).open(&p) {
+        if head {
+            let _ = writeln!(
+                fh,
+                "start;end;version;duration_s;entries;docs_loaded;docs_not_loadable;result;portal_disturbance"
+            );
+        }
+        let res = match status {
+            "COMPLETED" => "complete",
+            "COMPLETED WITH MISSING DOCUMENTS" => "missing",
+            _ => "aborted",
+        };
+        let dist = u8::from(why.starts_with("portal") || why.contains("session") || why.contains("down"));
+        let _ = writeln!(
+            fh,
+            "{};{};{};{};{entries};{loaded};{failed};{res};{dist}",
+            start.format("%Y-%m-%d %H:%M:%S"),
+            end.format("%Y-%m-%d %H:%M:%S"),
+            env!("CARGO_PKG_VERSION"),
+            (*end - *start).num_seconds().max(0)
+        );
     }
 }
 
