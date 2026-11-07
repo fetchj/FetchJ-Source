@@ -20,13 +20,15 @@ pueda comprobar qué hace el programa con sesiones, contraseñas y expedientes.
 | `src/totp.rs`, `src/aiapi.rs` | how an authenticator key and an AI API key are stored (Windows data protection, never in a settings file or log) |
 | `src/anon.rs`, `src/aipack.rs`, `src/aipdf.rs`, `src/aiprompt.rs` | the AI handover: what is anonymised, what leaves the computer, and only when the user starts it |
 | `src/country.rs`, `data/countries/` | addresses and texts of the portal per country |
+| `src/translate.rs`, `ui/src/translate.js` | translating a document: on this computer (nothing leaves it), with Google or with Claude – the text leaves the computer only after the user clicks, the first time after a notice naming the service and its country |
+| `ui/src/vendor/bergamot-translator.js`, `ui/public/bergamot/` | the translator of Mozilla (Bergamot) used for “on this computer”, **unchanged third-party code under the Mozilla Public License 2.0** – full text in `LICENSE-MPL-2.0` |
 
 ## What is not in here / Qué no contiene
 
 - **Validation and licence checks are removed** (marked in the code). / **Las comprobaciones de validación y de licencia
   se eliminaron** (marcadas en el código). / **Validierungs- und Lizenz-bedingte Prüfungen sind im öffentlichen
   Quellcode entfernt** (im Code markiert).
-- Comments, tests and the user interface are removed. The code does not compile as it is.
+- Comments, tests and the user interface are removed (third-party code under `ui/` stays unchanged). The code does not compile as it is.
 
 ## AI handover / Entrega a la IA
 

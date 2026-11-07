@@ -6,10 +6,6 @@ use std::sync::Mutex;
 const API: &str = "https://api.anthropic.com/v1";
 
 fn api_base() -> String {
-    #[cfg(test)]
-    if let Ok(b) = std::env::var("FJ_TEST_API_BASE") {
-        return b;
-    }
     API.to_string()
 }
 
@@ -38,10 +34,6 @@ pub fn key_clear(state: &Path) {
 }
 
 fn key(state: &Path) -> Result<String, String> {
-    #[cfg(test)]
-    if let Ok(k) = std::env::var("FJ_TEST_API_KEY") {
-        return Ok(k);
-    }
     let enc = std::fs::read(key_file(state)).map_err(|_| "nokey".to_string())?;
     let k = crate::totp::unprotect(&enc).ok_or_else(|| "nokey".to_string())?;
     String::from_utf8(k).map_err(|_| "nokey".to_string())
