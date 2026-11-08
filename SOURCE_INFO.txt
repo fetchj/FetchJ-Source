@@ -1,3 +1,3 @@
-FetchJ 0.9.12
-private commit: afecc02d1412f5059c2489f87436bff86a2d6bdc
+FetchJ 0.9.13
+private commit: 0c857a126ebeea0c5b6a284f0392fd98e46349e7
 files: 28 (3 third-party, unchanged)
