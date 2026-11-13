@@ -1,7 +1,7 @@
 {
  "format": 1,
  "country": "CR",
- "version": "2026-10-24",
+ "version": "2026-11-12",
  "status": "available",
  "meta": {
   "portal_name": "Gestión en Línea",
@@ -14,8 +14,8 @@
   "tz_name": "America/Costa_Rica",
   "session_max_min": "300",
   "id_kind": "cedula",
-  "payment": "sinpe",
-  "currency": "CRC"
+  "payment": "card",
+  "currency": "USD"
  },
  "values": {
   "selectors.logged_in_text": "Salir",

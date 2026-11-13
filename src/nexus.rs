@@ -309,8 +309,8 @@ fn wait_snapshot<R: Runtime>(w: &WebviewWindow<R>, words: &[String], not_first: 
         };
         if let Ok(v) = r {
             if v["captcha"].as_bool().unwrap_or(false) {
-                let _ = w.show();
-                let _ = w.set_focus();
+                #[cfg(desktop)]
+                crate::bridge::raise(&w, true, "Nexus asks for a captcha");
                 return Err("captcha".into());
             }
 
@@ -452,7 +452,12 @@ pub fn search<R: Runtime>(
                 set_origin(o);
                 let nw = window(app, conf, &rebase(url, o))?;
                 if shown {
-                    let _ = nw.show();
+                    #[cfg(desktop)]
+                    if crate::bridge::app_focused(app) {
+                        let _ = nw.show();
+                    } else {
+                        crate::bridge::show_quiet(&nw, false);
+                    }
                 }
                 w = Some(nw);
             }
@@ -827,7 +832,8 @@ pub fn fetch_pdf<R: Runtime>(
             Duration::from_secs(5),
         ) {
             if v.as_bool().unwrap_or(false) {
-                let _ = w.show();
+                #[cfg(desktop)]
+                crate::bridge::raise(&w, true, "Nexus asks for a captcha");
                 return Err("captcha".into());
             }
         }

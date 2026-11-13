@@ -9,7 +9,7 @@ fn api_base() -> String {
     API.to_string()
 }
 
-const POLL: u64 = if cfg!(test) { 1 } else { 20 };
+const POLL: u64 = 20;
 
 fn key_file(state: &Path) -> PathBuf {
     state.join("FetchJ_ai_key.bin")

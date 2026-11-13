@@ -227,7 +227,10 @@ pub fn focus_event(label: &str, focused: bool) {
 
 #[cfg(desktop)]
 pub fn app_focused<R: Runtime>(app: &AppHandle<R>) -> bool {
-    app.webview_windows().values().any(|w| w.is_focused().unwrap_or(false))
+    match crate::focus::fetchj_in_front() {
+        Some(front) => front,
+        None => app.webview_windows().values().any(|w| w.is_focused().unwrap_or(false)),
+    }
 }
 
 #[cfg(desktop)]
