@@ -216,6 +216,8 @@ pub struct Fetcher {
     pub run_id: String,
     pub run_start: DateTime<Local>,
     pub proto: Protocol,
+
+    pub local_sha: HashMap<PathBuf, Vec<(String, PathBuf)>>,
     pub failmem: FailMemory,
     pub parties: Parties,
     pub pages: Pages,
@@ -1042,6 +1044,23 @@ pub fn run_update(args: StartArgs) -> RunOutcome {
     for n in proto.notes.drain(..) {
         log.info(n);
     }
+
+    let mut conf = conf;
+    {
+        let ok: std::collections::BTreeSet<String> = proto
+            .ok
+            .values()
+            .filter_map(|r| r.get("case_number"))
+            .map(|c| crate::text::fmt_case_number(c))
+            .collect();
+        conf.held = crate::casemgmt::missing_folders(&conf, &ok);
+        if !conf.held.is_empty() {
+            log.info(format!(
+                "   {} case folder(s) missing (deleted outside FetchJ) - not loaded until decided on the page \"Manage cases\"",
+                conf.held.len()
+            ));
+        }
+    }
     {
         let mut m = ids.lock().unwrap();
         let mut rows: Vec<_> = proto
@@ -1201,6 +1220,7 @@ pub fn run_update(args: StartArgs) -> RunOutcome {
         run_id: run_id.clone(),
         run_start: start,
         proto,
+        local_sha: HashMap::new(),
         failmem,
         parties,
         pages,

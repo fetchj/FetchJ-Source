@@ -9,8 +9,9 @@ use crate::text::{build_filename, detect_file_type, parse_portal_date, sanitize,
 use base64::Engine;
 use chrono::NaiveDateTime;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 pub const NO_TITLE_FILE: &str = "SIN_TITULO_EN_PORTAL";
@@ -362,6 +363,23 @@ impl Fetcher {
         Ok((finfo, r2.data))
     }
 
+    fn local_twin(&mut self, case_dir: &Path, digest: &str) -> Option<PathBuf> {
+        if !self.local_sha.contains_key(case_dir) {
+            let known: HashSet<String> = self
+                .proto
+                .ok
+                .values()
+                .filter_map(|r| {
+                    r.get("target_path")
+                        .filter(|s| !s.is_empty())
+                        .map(|s| crate::protocol::norm_path_key(Path::new(s)))
+                })
+                .collect();
+            self.local_sha.insert(case_dir.to_path_buf(), local_files_sha(case_dir, &known));
+        }
+        take_twin(self.local_sha.get_mut(case_dir)?, digest)
+    }
+
     fn name_used_by_other_document(&self, target: &Path, doc_id: &str) -> bool {
         let t = crate::protocol::norm_path_key(target);
         self.proto.ok.values().any(|r| {
@@ -493,7 +511,28 @@ impl Fetcher {
                             self.id_doc(&doc_id)
                         ));
                     }
-                    if target.exists() {
+
+                    if !target.exists() {
+                        if let Some(twin) = self.local_twin(case_dir, &digest) {
+                            if std::fs::rename(&twin, &target).is_ok() {
+                                self.info("      file already in the case folder under another name – taken over and renamed".to_string());
+                                if self.cfg.set_file_time {
+                                    if let Some(ep) = pdt.and_then(|p| crate::text::portal_epoch(&p, &self.cfg.portal_tz)) {
+                                        set_file_times(&target, ep);
+                                    }
+                                }
+                            } else {
+                                self.info(
+                                    "      file already in the case folder under another name – taken over (rename not possible now)"
+                                        .to_string(),
+                                );
+                                name = twin.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or(name);
+                                target = twin;
+                            }
+                            status = "OK_SAME_FILE";
+                        }
+                    }
+                    if status == "OK" && target.exists() {
                         if std::fs::read(&target).map(|b| sha256_hex(&b) == digest).unwrap_or(false) {
                             status = "OK_SAME_FILE";
                         } else {
@@ -709,4 +748,24 @@ impl Fetcher {
         self.live_progress = (String::new(), 0, 0);
         Ok(())
     }
+}
+
+pub(crate) fn local_files_sha(case_dir: &Path, known: &HashSet<String>) -> Vec<(String, PathBuf)> {
+    let mut v = Vec::new();
+    for e in std::fs::read_dir(case_dir).into_iter().flatten().flatten() {
+        let p = e.path();
+        let n = e.file_name().to_string_lossy().to_string();
+        if !p.is_file() || n.starts_with(['_', '.']) || n.ends_with(".part") || known.contains(&crate::protocol::norm_path_key(&p)) {
+            continue;
+        }
+        if let Ok(h) = std::fs::read(&p).map(|b| sha256_hex(&b)) {
+            v.push((h, p));
+        }
+    }
+    v
+}
+
+pub(crate) fn take_twin(list: &mut Vec<(String, PathBuf)>, digest: &str) -> Option<PathBuf> {
+    let i = list.iter().position(|(h, p)| h == digest && p.exists())?;
+    Some(list.remove(i).1)
 }
